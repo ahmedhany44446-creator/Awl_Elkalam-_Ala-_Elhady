@@ -26,28 +26,11 @@ var faqData = [
       { q: 'الكورس أونلاين ولا أوفلاين؟', a: 'أوفلاين (حضوري)، وفي متابعة بعد السيشن على جروب واتساب.' },
       { q: 'الحجز بيتم إزاي؟', a: 'اعمل اختبار المستوى، وبعدها املا فورم الحجز وهتتحوّل علطول على واتساب ببياناتك ونتيجتك.' }
 ];
-var Q = [
-      { q: 'Hello! How ___ you?', o: ['is', 'are', 'am', 'be'], a: 1 },
-      { q: 'She ___ a student.', o: ['am', 'are', 'is', 'be'], a: 2 },
-      { q: 'I ___ to work every day.', o: ['go', 'goes', 'going', 'gone'], a: 0 },
-      { q: 'Yesterday, we ___ a movie.', o: ['watch', 'watched', 'watching', 'watches'], a: 1 },
-      { q: 'How long ___ you lived here?', o: ['did', 'are', 'have', 'do'], a: 2 },
-      { q: 'If I ___ more time, I would study more.', o: ['have', 'had', 'will have', 'having'], a: 1 },
-      { q: 'The report ___ by the manager before the meeting.', o: ['was reviewed', 'reviewed', 'is review', 'reviewing'], a: 0 },
-      { q: 'She suggested ___ the meeting to Monday.', o: ['to move', 'moving', 'move', 'moved'], a: 1 }
-];
-var infos = [
-      { ar: 'مبتدئ', en: 'Beginner', msg: 'نقطة بدايتك ممتازة. هنبني الأساس سوا خطوة خطوة، وهتتكلم من أول جلسة.' },
-      { ar: 'متوسط', en: 'Intermediate', msg: 'عندك أساس كويس. محتاج طلاقة وممارسة، وده بالظبط شغلنا.' },
-      { ar: 'محادثة', en: 'Conversation', msg: 'مستواك قوي. هنشتغل على الثقة والحوار الحقيقي والمقابلات.' }
-];
 
 
-  var goalNames = { job: 'مقابلة شغل', chat: 'محادثة عامة', unsure: 'مش متأكد' };
-  var goalList = [['job', 'مقابلة شغل'], ['chat', 'محادثة عامة'], ['unsure', 'مش متأكد']];
-  var PLUS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17104F" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg>';
+    var PLUS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17104F" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg>';
 
-  var st = { lvl: 0, q: 0, faq: 0, goal: 'job', tStep: -1, answers: [], busy: false, lastAns: 0 };
+  var st = { lvl: 0, q: 0, faq: 0, busy: false };
 
   function $(s, r) { return (r || document).querySelector(s); }
   function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
@@ -119,52 +102,16 @@ var infos = [
     });
   }
 
-  /* ---------- placement test ---------- */
-  function scoreOf(ans) { return ans.reduce(function (n, a, i) { return n + (Q[i] && a === Q[i].a ? 1 : 0); }, 0); }
-  function levelOf(n) { return infos[n <= 2 ? 0 : n <= 5 ? 1 : 2]; }
-  function levelText() {
-    var sc = scoreOf(st.answers), l = levelOf(sc);
-    return l.ar + ' · ' + l.en + ' (' + sc + '/' + Q.length + ')';
+  /* ---------- placement assistant hooks (logic lives in coach.js) ---------- */
+  function syncCoach() {
+    var R = window.AKCoach && window.AKCoach.result;
+    show('testDone', !!R); show('testNotDone', !R);
+    if (R) setB('levelText', R.level + ' · ' + R.levelAr + ' (' + R.score + '/' + R.total + ') — ' + R.goal);
   }
-  function renderTest(animate) {
-    var total = Q.length, step = st.tStep, done = step >= total;
-    show('tIntro', step < 0); show('tQ', step >= 0 && !done); show('tRes', done);
-    show('testDone', done); show('testNotDone', !done);
-    if (done) {
-      var sc = scoreOf(st.answers), l = levelOf(sc);
-      setB('resAr', l.ar); setB('resEn', l.en); setB('resScore', sc + ' / ' + total); setB('resMsg', l.msg);
-      setB('levelText', levelText());
-    } else if (step >= 0) {
-      var cq = Q[step];
-      setB('tNum', 'السؤال ' + (step + 1) + ' من ' + total);
-      setB('tQuestion', cq.q);
-      var segs = slot('tSegs');
-      Q.forEach(function (x, i) { segs.appendChild(mk('span', 'seg' + (i < step ? ' on' : i === step ? ' cur' : ''))); segs.lastChild.style.flex = '1'; });
-      var opts = slot('tOpts');
-      cq.o.forEach(function (t, i) {
-        var b = mk('button', 'opt'); b.type = 'button';
-        b.appendChild(mk('span', 'ol', 'ABCD'.charAt(i))); b.appendChild(mk('span', null, t));
-        b.addEventListener('click', function () {
-          var now = Date.now();
-          if (st.tStep !== step || now - st.lastAns < 450) return;
-          st.lastAns = now; st.answers.push(i); st.tStep++; renderTest(true);
-        });
-        opts.appendChild(b);
-      });
-      if (animate) restart($('[data-anim="t"]'), 'swap-a');
-    }
-  }
-  function startTest() { st.tStep = 0; st.answers = []; renderTest(true); }
+  window.addEventListener('ak:done', syncCoach);
+  window.addEventListener('ak:reset', syncCoach);
 
   /* ---------- booking form ---------- */
-  function renderGoals() {
-    var box = slot('goals');
-    goalList.forEach(function (g) {
-      var b = mk('button', 'chip' + (st.goal === g[0] ? ' on' : ''), g[1]); b.type = 'button';
-      b.addEventListener('click', function () { st.goal = g[0]; renderGoals(); });
-      box.appendChild(b);
-    });
-  }
   function toEnDigits(s) {
     return s.replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); })
             .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); });
@@ -181,13 +128,19 @@ var infos = [
     var form = e.target;
     var name = cleanName(form.elements.name.value);
     var phone = cleanPhone(form.elements.phone.value);
-    if (st.tStep < Q.length) { err('لازم تخلّص اختبار المستوى الأول.'); return; }
+    var R = window.AKCoach && window.AKCoach.result;
+    if (!R) { err('لازم تخلّص اختبار المستوى الأول.'); return; }
     if (name.length < 2) { err('من فضلك اكتب اسمك.'); return; }
     if (!phone) { err('رقم الواتساب لازم يكون رقم موبايل مصري صحيح (مثال: 01012345678).'); return; }
     err('');
-    var sc = scoreOf(st.answers), l = levelOf(sc);
-    var msg = 'أهلًا، أنا ' + name + '\nرقمي: ' + phone + '\nهدفي: ' + goalNames[st.goal] +
-      '\nنتيجة اختبار المستوى: ' + l.ar + ' (' + l.en + ') — ' + sc + '/' + Q.length + '\nعايز أحجز في أول الكلام.';
+    var msg = 'أهلًا، أنا ' + name + '\nرقمي: ' + phone +
+      '\nهدفي من الإنجليزي: ' + R.goal +
+      '\nتقييمي لنفسي: ' + R.est +
+      '\nنتيجة اختبار المستوى: ' + R.level + ' (' + R.levelAr + ') — ' + R.score + '/' + R.total +
+      '\nالمستوى المناسب في الكورس: ' + R.course +
+      (R.strong.length ? '\nنقاط القوة: ' + R.strong.join('، ') : '') +
+      (R.weak.length ? '\nمحتاج تركيز على: ' + R.weak.join('، ') : '') +
+      '\nعايز أحجز في أول الكلام.';
     var url = 'https://wa.me/' + WA + '?text=' + encodeURIComponent(msg);
     var fb = $('#waFallback'); if (fb) fb.href = url;
     setB('sentName', name);
@@ -231,7 +184,6 @@ var infos = [
       var a = act.getAttribute('data-act');
       if (a === 'toggleMenu') setMenu(!$('#burger').classList.contains('open'));
       else if (a === 'nextPrompt') { st.q = (st.q + 1) % prompts.length; renderPrompt(true); }
-      else if (a === 'tStart' || a === 'tRetake') startTest();
       return;
     }
     var link = t.closest('a[href^="#"]');
@@ -244,7 +196,7 @@ var infos = [
 
   var form = $('#bookForm'); if (form) form.addEventListener('submit', onSubmit);
 
-  renderLevels(false); renderPrompt(false); renderFaq(); renderGoals(); renderTest(false);
+  renderLevels(false); renderPrompt(false); renderFaq(); syncCoach();
   show('showForm', true); show('sent', false); show('errMsg', false);
   try { sessionStorage.setItem('ak-seen', '1'); } catch (e3) {}
 })();
